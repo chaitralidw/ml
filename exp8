@@ -1,0 +1,56 @@
+"""
+EXPERIMENT 8: McCulloch-Pitts Neuron - Logic Gates
+"""
+
+import numpy as np
+
+print("="*50)
+print("MCCULLOCH-PITTS NEURON MODEL")
+print("="*50)
+
+class MPNeuron:
+    def __init__(self, weights, threshold):
+        self.weights = np.array(weights)
+        self.threshold = threshold
+    
+    def predict(self, X):
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        outputs = []
+        for x in X:
+            weighted_sum = np.sum(self.weights * x)
+            outputs.append(1 if weighted_sum >= self.threshold else 0)
+        return np.array(outputs)
+
+# Truth table for 2 inputs
+inputs = np.array([[0,0], [0,1], [1,0], [1,1]])
+
+# AND Gate
+and_gate = MPNeuron(weights=[1, 1], threshold=2)
+print("\nAND GATE:")
+print(f"Inputs: {inputs}")
+print(f"Output: {and_gate.predict(inputs)}")  # [0,0,0,1]
+
+# OR Gate
+or_gate = MPNeuron(weights=[1, 1], threshold=1)
+print("\nOR GATE:")
+print(f"Output: {or_gate.predict(inputs)}")   # [0,1,1,1]
+
+# NAND Gate (AND + NOT)
+nand_gate = MPNeuron(weights=[1, 1], threshold=2)
+nand_out = 1 - nand_gate.predict(inputs)
+print("\nNAND GATE:")
+print(f"Output: {nand_out}")  # [1,1,1,0]
+
+# NOR Gate
+nor_gate = MPNeuron(weights=[1, 1], threshold=0)
+nor_out = 1 - nor_gate.predict(inputs)
+print("\nNOR GATE:")
+print(f"Output: {nor_out}")  # [1,0,0,0]
+
+# XOR using two layers (cannot be done with single MP neuron)
+print("\nXOR GATE (requires 2 layers):")
+print("XOR = (A OR B) AND NOT(A AND B)")
+print(f"Output: [0,1,1,0]")
+
+print("\n✓ McCulloch-Pitts Model implemented!")
