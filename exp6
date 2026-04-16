@@ -1,0 +1,183 @@
+"""
+EXPERIMENT 6: Hebbian Learning Algorithm
+Purpose: Unsupervised learning based on "neurons that fire together, wire together"
+Dataset: Pattern association and recognition
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+print("="*60)
+print("HEBBIAN LEARNING - PATTERN ASSOCIATION")
+print("="*60)
+
+class HebbianNetwork:
+    """
+    Hebbian Learning Neural Network
+    Implements: Δw = η * x * y
+    """
+    def __init__(self, input_size, output_size, learning_rate=0.1):
+        self.input_size = input_size
+        self.output_size = output_size
+        self.lr = learning_rate
+        
+        # Initialize weights randomly
+        self.weights = np.random.randn(input_size, output_size) * 0.1
+        
+        # Store training history
+        self.weight_history = []
+        
+    def activate(self, x):
+        """Linear activation function"""
+        return x
+    
+    def forward(self, x):
+        """Forward pass"""
+        return self.activate(np.dot(x, self.weights))
+    
+    def hebbian_update(self, x, y):
+        """Hebbian learning rule: Δw = η * x * y"""
+        delta_w = self.lr * np.outer(x, y)
+        self.weights += delta_w
+        
+        # Normalize weights to prevent explosion
+        self.weights = self.weights / (np.linalg.norm(self.weights, axis=0) + 1e-8)
+        
+    def train(self, X, y=None, epochs=100, verbose=True):
+        """Train using Hebbian learning"""
+        self.weight_history = []
+        
+        for epoch in range(epochs):
+            epoch_weights = self.weights.copy()
+            
+            for i in range(len(X)):
+                x = X[i]
+                
+                if y is not None:
+                    # Supervised Hebbian
+                    target = y[i]
+                else:
+                    # Unsupervised Hebbian (output = input)
+                    target = self.forward(x)
+                
+                self.hebbian_update(x, target)
+            
+            self.weight_history.append(self.weights.copy())
+            
+            if verbose and (epoch % 20 == 0):
+                print(f"Epoch {epoch}: Weights norm = {np.linalg.norm(self.weights):.4f}")
+    
+    def predict(self, X):
+        """Make predictions"""
+        return self.forward(X)
+    
+    def recall_pattern(self, pattern, noise_level=0):
+        """Recall pattern with possible noise"""
+        if noise_level > 0:
+            noise = np.random.randn(len(pattern)) * noise_level
+            pattern = pattern + noise
+        
+        return self.forward(pattern)
+
+# Generate synthetic patterns
+print("\n1. Generating patterns for Hebbian learning...")
+
+# Define basic patterns
+patterns = {
+    'pattern1': np.array([1, 0, 1, 0, 1, 0, 1, 0]),
+    'pattern2': np.array([0, 1, 0, 1, 0, 1, 0, 1]),
+    'pattern3': np.array([1, 1, 0, 0, 1, 1, 0, 0]),
+    'pattern4': np.array([0, 0, 1, 1, 0, 0, 1, 1])
+}
+
+# Create training data (associate patterns with themselves - autoassociation)
+X_train = np.array(list(patterns.values()))
+y_train = X_train.copy()  # Autoassociative learning
+
+print(f"Training patterns shape: {X_train.shape}")
+print("\nPatterns:")
+for name, pattern in patterns.items():
+    print(f"{name}: {pattern}")
+
+# Create Hebbian network
+input_size = len(patterns['pattern1'])
+output_size = input_size  # Autoassociative
+hebbian_net = HebbianNetwork(input_size, output_size, learning_rate=0.1)
+
+print("\n" + "="*60)
+print("TRAINING HEBBIAN NETWORK")
+print("="*60)
+
+# Train the network
+hebbian_net.train(X_train, y_train, epochs=100, verbose=True)
+
+print("\nFinal weights matrix shape:", hebbian_net.weights.shape)
+print("Weights matrix (first 5x5):")
+print(hebbian_net.weights[:5, :5])
+
+# Test recall with clean patterns
+print("\n" + "="*60)
+print("PATTERN RECALL - CLEAN INPUTS")
+print("="*60)
+
+for name, pattern in patterns.items():
+    recalled = hebbian_net.recall_pattern(pattern)
+    
+    # Binarize output (threshold at 0.5)
+    recalled_binary = (recalled > 0.5).astype(int)
+    
+    print(f"\n{name}:")
+    print(f"  Original:  {pattern}")
+    print(f"  Recalled:  {recalled_binary}")
+    print(f"  Match:     {np.array_equal(pattern, recalled_binary)}")
+
+# Test with noisy patterns
+print("\n" + "="*60)
+print("PATTERN RECALL - WITH NOISE")
+print("="*60)
+
+noise_levels = [0.2, 0.5, 0.8]
+
+fig, axes = plt.subplots(len(patterns), len(noise_levels) + 1, 
+                         figsize=(12, 8))
+
+for i, (name, pattern) in enumerate(patterns.items()):
+    # Original pattern
+    axes[i, 0].imshow(pattern.reshape(4, 2), cmap='gray', vmin=0, vmax=1)
+    axes[i, 0].set_title(f'{name}\nOriginal')
+    axes[i, 0].axis('off')
+    
+    for j, noise in enumerate(noise_levels):
+        # Add noise
+        noisy = pattern + np.random.randn(len(pattern)) * noise
+        recalled = hebbian_net.recall_pattern(pattern, noise_level=noise)
+        recalled_binary = (recalled > 0.5).astype(int)
+        
+        # Display noisy input
+        axes[i, j+1].imshow(noisy.reshape(4, 2), cmap='gray', vmin=0, vmax=1)
+        axes[i, j+1].set_title(f'Noise={noise}')
+        axes[i, j+1].axis('off')
+        
+        # Add recall text
+        match = np.array_equal(pattern, recalled_binary)
+        axes[i, j+1].set_xlabel(f'Recall: {"✓" if match else "✗"}')
+
+plt.suptitle('Hebbian Learning - Pattern Recall with Noise', fontsize=14)
+plt.tight_layout()
+plt.show()
+
+# Learning visualization
+print("\n" + "="*60)
+print("WEIGHT EVOLUTION DURING TRAINING")
+print("="*60)
+
+fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+epochs_to_show = [0, 20, 40, 60, 80, 99]
+
+for idx, epoch in enumerate(epochs_to_show):
+    row = idx // 3
+    col = idx % 3
+    ax = axes[row, col]
+    
+    weights_to_show = hebbian_net.weight_history[epoch][:8, :8]
+   
