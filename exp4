@@ -1,0 +1,207 @@
+"""
+EXPERIMENT 4: Logistic Regression Implementation
+Purpose: Binary classification for predicting customer churn
+Dataset: Telecom customer churn prediction
+"""
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score, confusion_matrix, 
+                           classification_report, roc_curve, auc)
+
+print("="*60)
+print("LOGISTIC REGRESSION - CUSTOMER CHURN PREDICTION")
+print("="*60)
+
+# Generate synthetic dataset
+np.random.seed(42)
+n_customers = 1000
+
+# Features
+tenure = np.random.randint(1, 72, n_customers)  # Months
+monthly_charges = np.random.uniform(20, 120, n_customers)
+contract_type = np.random.choice(['Month-to-month', 'One year', 'Two year'], 
+                                  n_customers, p=[0.5, 0.3, 0.2])
+internet_service = np.random.choice(['DSL', 'Fiber optic', 'No'], 
+                                     n_customers, p=[0.4, 0.4, 0.2])
+tech_support = np.random.choice(['Yes', 'No'], n_customers, p=[0.3, 0.7])
+
+# Convert categorical to numerical
+contract_numeric = {'Month-to-month': 0, 'One year': 1, 'Two year': 2}
+internet_numeric = {'No': 0, 'DSL': 1, 'Fiber optic': 2}
+tech_numeric = {'Yes': 1, 'No': 0}
+
+contract_encoded = [contract_numeric[c] for c in contract_type]
+internet_encoded = [internet_numeric[i] for i in internet_service]
+tech_encoded = [tech_numeric[t] for t in tech_support]
+
+# Calculate churn probability (more likely if: low tenure, high charges, month-to-month)
+churn_probability = 1 / (1 + np.exp(-(
+    -3 + 
+    -0.05 * tenure + 
+    0.02 * monthly_charges + 
+    1.5 * (contract_encoded == 0) +  # Month-to-month
+    0.5 * (internet_encoded == 2) +   # Fiber optic
+    -0.8 * tech_encoded
+)))
+
+churn = (churn_probability > np.random.random(n_customers)).astype(int)
+
+# Create DataFrame
+df = pd.DataFrame({
+    'Tenure_months': tenure,
+    'Monthly_charges': monthly_charges,
+    'Contract_type': contract_type,
+    'Internet_service': internet_service,
+    'Tech_support': tech_support,
+    'Churn': churn
+})
+
+print("\nDataset Info:")
+print(df.head(10))
+print(f"\nDataset shape: {df.shape}")
+print(f"\nChurn distribution:")
+print(df['Churn'].value_counts())
+print(f"Churn rate: {df['Churn'].mean()*100:.2f}%")
+
+# Prepare features (one-hot encode categorical)
+X = pd.get_dummies(df.drop('Churn', axis=1), drop_first=True)
+y = df['Churn']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Scale features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+print(f"\nFeatures after encoding: {X.shape[1]}")
+print(f"Training samples: {X_train.shape[0]}")
+print(f"Testing samples: {X_test.shape[0]}")
+
+# Train Logistic Regression
+model = LogisticRegression(random_state=42, max_iter=1000)
+model.fit(X_train_scaled, y_train)
+
+# Predictions
+y_pred = model.predict(X_test_scaled)
+y_pred_proba = model.predict_proba(X_test_scaled)[:, 1]
+
+# Evaluation
+accuracy = accuracy_score(y_test, y_pred)
+print("\n" + "="*60)
+print("MODEL PERFORMANCE")
+print("="*60)
+print(f"Accuracy: {accuracy*100:.2f}%")
+print(f"\nClassification Report:")
+print(classification_report(y_test, y_pred, 
+                           target_names=['No Churn', 'Churn']))
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+
+# ROC Curve
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+roc_auc = auc(fpr, tpr)
+
+# Visualization
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+
+# Confusion Matrix heatmap
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=axes[0, 0])
+axes[0, 0].set_xlabel('Predicted')
+axes[0, 0].set_ylabel('Actual')
+axes[0, 0].set_title('Confusion Matrix')
+axes[0, 0].set_xticklabels(['No Churn', 'Churn'])
+axes[0, 0].set_yticklabels(['No Churn', 'Churn'])
+
+# ROC Curve
+axes[0, 1].plot(fpr, tpr, 'b-', label=f'ROC (AUC = {roc_auc:.3f})')
+axes[0, 1].plot([0, 1], [0, 1], 'r--', label='Random')
+axes[0, 1].set_xlabel('False Positive Rate')
+axes[0, 1].set_ylabel('True Positive Rate')
+axes[0, 1].set_title('ROC Curve')
+axes[0, 1].legend()
+axes[0, 1].grid(True, alpha=0.3)
+
+# Feature importance (absolute coefficients)
+feature_importance = pd.DataFrame({
+    'Feature': X.columns,
+    'Coefficient': np.abs(model.coef_[0])
+}).sort_values('Coefficient', ascending=True)
+
+axes[1, 0].barh(feature_importance['Feature'], feature_importance['Coefficient'])
+axes[1, 0].set_xlabel('Absolute Coefficient Value')
+axes[1, 0].set_title('Feature Importance')
+axes[1, 0].grid(True, alpha=0.3)
+
+# Probability distribution
+axes[1, 1].hist(y_pred_proba[y_test == 0], bins=30, alpha=0.7, 
+                label='No Churn', color='green')
+axes[1, 1].hist(y_pred_proba[y_test == 1], bins=30, alpha=0.7, 
+                label='Churn', color='red')
+axes[1, 1].set_xlabel('Predicted Churn Probability')
+axes[1, 1].set_ylabel('Frequency')
+axes[1, 1].set_title('Probability Distribution by Actual Class')
+axes[1, 1].legend()
+axes[1, 1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# Prediction function
+def predict_churn(tenure, monthly_charges, contract_type, 
+                  internet_service, tech_support):
+    """Predict churn probability for a customer"""
+    input_data = pd.DataFrame({
+        'Tenure_months': [tenure],
+        'Monthly_charges': [monthly_charges],
+        'Contract_type': [contract_type],
+        'Internet_service': [internet_service],
+        'Tech_support': [tech_support]
+    })
+    
+    # One-hot encode
+    input_encoded = pd.get_dummies(input_data, drop_first=True)
+    
+    # Ensure all columns match training
+    for col in X.columns:
+        if col not in input_encoded.columns:
+            input_encoded[col] = 0
+    
+    input_encoded = input_encoded[X.columns]
+    
+    # Scale
+    input_scaled = scaler.transform(input_encoded)
+    
+    # Predict
+    prob = model.predict_proba(input_scaled)[0, 1]
+    pred = model.predict(input_scaled)[0]
+    
+    return prob, pred
+
+print("\n" + "="*60)
+print("SAMPLE PREDICTIONS")
+print("="*60)
+test_customers = [
+    (12, 70, 'Month-to-month', 'Fiber optic', 'No'),
+    (48, 45, 'Two year', 'DSL', 'Yes'),
+    (6, 95, 'Month-to-month', 'Fiber optic', 'No'),
+    (60, 55, 'One year', 'No', 'Yes')
+]
+
+for tenure, charges, contract, internet, tech in test_customers:
+    prob, pred = predict_churn(tenure, charges, contract, internet, tech)
+    status = "Will Churn" if pred == 1 else "Will Stay"
+    print(f"\nCustomer: {tenure} months, ${charges}/month, {contract}, {internet}, Tech:{tech}")
+    print(f"→ Churn Probability: {prob*100:.1f}% → {status}")
+
+print("\n✓ Logistic Regression implemented successfully!")
