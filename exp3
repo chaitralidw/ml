@@ -1,149 +1,45 @@
 """
-EXPERIMENT 3: Linear Regression Implementation
-Purpose: Predict continuous values using linear relationship
-Dataset: House price prediction
+EXPERIMENT 3: Linear Regression - House Price Prediction
 """
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
-print("="*60)
-print("LINEAR REGRESSION - HOUSE PRICE PREDICTION")
-print("="*60)
+print("="*50)
+print("LINEAR REGRESSION")
+print("="*50)
 
-# Generate synthetic dataset
+# Generate synthetic data (House size vs Price)
 np.random.seed(42)
-n_samples = 200
-house_size = np.random.uniform(500, 5000, n_samples)  # Square feet
-bedrooms = np.random.randint(1, 6, n_samples)
-age = np.random.uniform(0, 50, n_samples)
+X = np.random.uniform(500, 5000, 100).reshape(-1, 1)  # Square feet
+y = 50000 + X.flatten() * 100 + np.random.normal(0, 20000, 100)  # Price
 
-# Price = base + size*coef1 + bedrooms*coef2 - age*coef3 + noise
-true_price = 50000 + (house_size * 100) + (bedrooms * 10000) - (age * 500)
-noise = np.random.normal(0, 20000, n_samples)
-price = true_price + noise
+# Split data (80-20)
+split = int(0.8 * len(X))
+X_train, X_test = X[:split], X[split:]
+y_train, y_test = y[:split], y[split:]
 
-# Create DataFrame
-df = pd.DataFrame({
-    'Size_sqft': house_size,
-    'Bedrooms': bedrooms,
-    'Age_years': age,
-    'Price': price
-})
-
-print("\nDataset Info:")
-print(df.head(10))
-print(f"\nDataset shape: {df.shape}")
-print(f"\nStatistical summary:\n{df.describe()}")
-
-# Prepare features and target
-X = df[['Size_sqft', 'Bedrooms', 'Age_years']]
-y = df['Price']
-
-# Split data
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-print(f"\nTraining samples: {X_train.shape[0]}")
-print(f"Testing samples: {X_test.shape[0]}")
-
-# Train Linear Regression model
+# Train model
 model = LinearRegression()
 model.fit(X_train, y_train)
 
-# Make predictions
-y_pred_train = model.predict(X_train)
-y_pred_test = model.predict(X_test)
+# Predict
+y_pred = model.predict(X_test)
 
-# Model evaluation
-print("\n" + "="*60)
-print("MODEL RESULTS")
-print("="*60)
-print(f"Intercept: ${model.intercept_:,.2f}")
-print("\nCoefficients:")
-for feature, coef in zip(X.columns, model.coef_):
-    print(f"  {feature}: ${coef:,.2f}")
-
-# Calculate metrics
-train_mse = mean_squared_error(y_train, y_pred_train)
-test_mse = mean_squared_error(y_test, y_pred_test)
-train_r2 = r2_score(y_train, y_pred_train)
-test_r2 = r2_score(y_test, y_pred_test)
-
-print(f"\nTraining MSE: ${train_mse:,.2f}")
-print(f"Testing MSE: ${test_mse:,.2f}")
-print(f"Training R² Score: {train_r2:.4f}")
-print(f"Testing R² Score: {test_r2:.4f}")
-
-# Equation
-print(f"\nRegression Equation:")
-print(f"Price = {model.intercept_:,.0f} + "
-      f"{model.coef_[0]:,.0f}*(Size) + "
-      f"{model.coef_[1]:,.0f}*(Bedrooms) + "
-      f"{model.coef_[2]:,.0f}*(Age)")
+# Results
+print(f"\nEquation: Price = {model.coef_[0]:.2f} × Size + {model.intercept_:.2f}")
+print(f"R² Score: {r2_score(y_test, y_pred):.4f}")
+print(f"RMSE: ${np.sqrt(mean_squared_error(y_test, y_pred)):,.2f}")
 
 # Visualization
-fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
-# Actual vs Predicted
-axes[0, 0].scatter(y_test, y_pred_test, alpha=0.6, edgecolors='k')
-axes[0, 0].plot([y_test.min(), y_test.max()], 
-                [y_test.min(), y_test.max()], 
-                'r--', lw=2)
-axes[0, 0].set_xlabel('Actual Price ($)')
-axes[0, 0].set_ylabel('Predicted Price ($)')
-axes[0, 0].set_title('Actual vs Predicted Prices')
-axes[0, 0].grid(True, alpha=0.3)
-
-# Residuals
-residuals = y_test - y_pred_test
-axes[0, 1].scatter(y_pred_test, residuals, alpha=0.6, edgecolors='k')
-axes[0, 1].axhline(y=0, color='r', linestyle='--')
-axes[0, 1].set_xlabel('Predicted Price ($)')
-axes[0, 1].set_ylabel('Residuals ($)')
-axes[0, 1].set_title('Residual Plot')
-axes[0, 1].grid(True, alpha=0.3)
-
-# Feature importance
-axes[1, 0].barh(X.columns, model.coef_)
-axes[1, 0].set_xlabel('Coefficient Value')
-axes[1, 0].set_title('Feature Importance')
-axes[1, 0].grid(True, alpha=0.3)
-
-# Distribution of prices
-axes[1, 1].hist(price, bins=30, edgecolor='black', alpha=0.7)
-axes[1, 1].set_xlabel('Price ($)')
-axes[1, 1].set_ylabel('Frequency')
-axes[1, 1].set_title('Price Distribution')
-axes[1, 1].grid(True, alpha=0.3)
-
-plt.tight_layout()
+plt.scatter(X_test, y_test, alpha=0.5, label='Actual')
+plt.plot(X_test, y_pred, 'r-', label='Predicted')
+plt.xlabel('House Size (sq ft)')
+plt.ylabel('Price ($)')
+plt.title('Linear Regression')
+plt.legend()
 plt.show()
 
-# Prediction function
-def predict_price(size_sqft, bedrooms, age_years):
-    """Predict house price based on features"""
-    features = np.array([[size_sqft, bedrooms, age_years]])
-    prediction = model.predict(features)[0]
-    return prediction
-
-print("\n" + "="*60)
-print("SAMPLE PREDICTIONS")
-print("="*60)
-test_cases = [
-    (2000, 3, 10),
-    (1500, 2, 5),
-    (3500, 4, 20),
-    (1000, 1, 30)
-]
-
-for size, beds, age in test_cases:
-    pred = predict_price(size, beds, age)
-    print(f"House: {size} sqft, {beds} beds, {age} years old → ${pred:,.2f}")
-
-print("\n✓ Linear Regression implemented successfully!")
+print("\n✓ Linear Regression implemented!")
