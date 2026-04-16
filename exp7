@@ -1,0 +1,66 @@
+"""
+EXPERIMENT 7: EM Algorithm - Gaussian Mixture Model
+"""
+
+import numpy as np
+from scipy.stats import multivariate_normal
+
+print("="*50)
+print("EXPECTATION-MAXIMIZATION (EM) ALGORITHM")
+print("="*50)
+
+class GMM:
+    def __init__(self, n_components=3, max_iter=50):
+        self.n_components = n_components
+        self.max_iter = max_iter
+    
+    def fit(self, X):
+        n, d = X.shape
+        # Initialize
+        self.weights = np.ones(self.n_components) / self.n_components
+        indices = np.random.choice(n, self.n_components, replace=False)
+        self.means = X[indices]
+        self.covs = np.array([np.eye(d) for _ in range(self.n_components)])
+        
+        for _ in range(self.max_iter):
+            # E-step
+            resp = np.zeros((n, self.n_components))
+            for k in range(self.n_components):
+                resp[:, k] = self.weights[k] * multivariate_normal.pdf(X, self.means[k], self.covs[k])
+            resp = resp / resp.sum(axis=1, keepdims=True)
+            
+            # M-step
+            Nk = resp.sum(axis=0)
+            self.weights = Nk / n
+            for k in range(self.n_components):
+                self.means[k] = (resp[:, k:k+1] * X).sum(axis=0) / Nk[k]
+                diff = X - self.means[k]
+                self.covs[k] = (resp[:, k:k+1] * diff).T @ diff / Nk[k]
+    
+    def predict(self, X):
+        resp = np.zeros((len(X), self.n_components))
+        for k in range(self.n_components):
+            resp[:, k] = self.weights[k] * multivariate_normal.pdf(X, self.means[k], self.covs[k])
+        return np.argmax(resp, axis=1)
+
+# Generate data
+np.random.seed(42)
+from sklearn.datasets import make_blobs
+X, y_true = make_blobs(n_samples=300, centers=3, cluster_std=0.8, random_state=42)
+
+# Fit GMM
+gmm = GMM(n_components=3)
+gmm.fit(X)
+y_pred = gmm.predict(X)
+
+# Results
+print(f"Data shape: {X.shape}")
+print(f"Learned means:\n{gmm.means}")
+print(f"Learned weights: {gmm.weights}")
+
+# Compare with true labels
+from sklearn.metrics import adjusted_rand_score
+ari = adjusted_rand_score(y_true, y_pred)
+print(f"\nAdjusted Rand Index: {ari:.4f}")
+
+print("\n✓ EM Algorithm implemented!")
